@@ -1,0 +1,6 @@
+version: 2.1
+
+jobs:
+  salesforce-cli:
+    docker:
+      - image: salesforce/cli:latest-slim
