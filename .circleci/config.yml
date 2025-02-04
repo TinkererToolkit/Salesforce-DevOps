@@ -1,0 +1,37 @@
+version: 2.1
+executors:
+  sf-cli:
+    docker:
+      - image: salesforce/cli:latest-slim
+
+jobs:
+  sf-auth:
+    executor: sf-cli
+    steps:
+      - run: |
+        echo $HUB_SERVER_KEY_HEX > server.key.enc
+        openssl enc -nosalt -aes-256-cbc -d \
+        -in server.key.enc -out server.key -base64 \
+        -K $DECRYPTION_KEY -iv $DECRYPTION_IV
+        rm server.key.enc
+        sf org login jwt \
+        --client-id $HUB_CONSUMER_KEY \
+        --jwt-key-file server.key \
+        --username $HUB_SFDX_USER \
+        --instance-url $HUB_INSTANCE_URL \
+        --set-default-dev-hub
+        rm server.key
+  scratch-create:
+    steps:
+      - run: |
+        echo "${CIRCLE_PROJECT_REPONAME}-${CIRCLE_BRANCH}" > $SCRATCH_ORG_ALIAS
+        sf org create scratch --definition-file config/project-scratch-def.json --alias $SCRATCH_ORG_ALIAS
+  scratch-deploy:
+    steps:
+      - run: sf project deploy start --manifest package.xml --target-org $SCRATCH_ORG_ALIAS
+  scratch-open:
+    steps:
+      - run: sf org open --target-org $SCRATCH_ORG_ALIAS
+  scratch-delete:
+    steps:
+      - run: sf org delete scratch --target-org $SCRATCH_ORG_ALIAS --no-prompt
